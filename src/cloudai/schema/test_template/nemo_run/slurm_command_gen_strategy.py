@@ -33,8 +33,21 @@ class NeMoRunSlurmCommandGenStrategy(SlurmCommandGenStrategy):
         tdef: NeMoRunTestDefinition = cast(NeMoRunTestDefinition, tr.test.test_definition)
         base_args.update({"image_path": tdef.docker_image.installed_path})
 
+        if "target_experiments_dir" in cmd_args:
+            base_args.update({"container_mounts": [f'{tr.output_path.absolute()}:{cmd_args["target_experiments_dir"]}']})
+
         return base_args
 
+    def gen_srun_prefix(self, slurm_args: dict[str, Any], tr: TestRun) -> list[str]:
+        tdef: NeMoRunTestDefinition = cast(NeMoRunTestDefinition, tr.test.test_definition)
+        mounts = tdef.container_mounts(self.system.install_path)
+        if slurm_args.get("container_mounts"):
+            mounts.append(",".join(slurm_args["container_mounts"]))
+        slurm_args["container_mounts"] = ",".join(mounts)
+        cmd = super().gen_srun_prefix(slurm_args, tr)
+        cmd.append(r'nsys profile -s none -o "/workspace/profile_${SLURM_JOB_ID}_node${SLURM_NODEID}_rank${SLURM_PROCID}.nsys-rep" -t cuda,nvtx --force-overwrite true --capture-range=cudaProfilerApi --capture-range-end=stop')
+        return cmd
+    
     def generate_test_command(
         self, env_vars: Dict[str, str], cmd_args: Dict[str, Union[str, List[str]]], tr: TestRun
     ) -> List[str]:

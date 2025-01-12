@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 from typing import Optional
 
 from cloudai import CmdArgs, TestDefinition
@@ -26,6 +27,8 @@ class NeMoRunCmdArgs(CmdArgs):
     docker_image_url: str
     task: str
     recipe_name: str
+    target_experiments_dir: str
+    nemo_fork_dir: str
 
 
 class NeMoRunTestDefinition(TestDefinition):
@@ -39,7 +42,13 @@ class NeMoRunTestDefinition(TestDefinition):
         if not self._docker_image:
             self._docker_image = DockerImage(url=self.cmd_args.docker_image_url)
         return self._docker_image
-
+        
+    def container_mounts(self, root: Path) -> list[str]:
+        nemo_fork_dir = root / self.cmd_args.nemo_fork_dir
+        return [
+            f"{nemo_fork_dir.absolute()}:/opt/NeMo"
+        ]
+    
     @property
     def installables(self) -> list[Installable]:
         """Get list of installable objects."""
